@@ -1,0 +1,16 @@
+.codex-antigravity/
+**/.codex-antigravity/
+work/
+runtime/
+**/runtime/
+**/__pycache__/
+*.pyc
+.env
+.env.*
+**/context.json
+**/mcp_config.json
+**/settings.json
+*.events.jsonl
+*.stderr.txt
+*.log
+*.zip

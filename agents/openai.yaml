@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex–Antigravity 双向协作"
+  short_description: "用账号登录控制 Antigravity 会话，并将结果主动回传当前 Codex 聊天"
+  default_prompt: "使用 $codex-antigravity-bridge 将任务交给 Antigravity 会话，并让它把结果回传当前 Codex 聊天。"
