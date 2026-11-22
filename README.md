@@ -4,6 +4,10 @@
 
 这是一个可直接安装的 Codex skill，附带少量无第三方依赖的脚本。
 
+## 桌面会话和线程联系
+
+[Thread Contact](thread-contact/README.md) 支持 Windows 上的 Codex 与 Antigravity 桌面会话双向读写、Codex 深度链接，以及从两端 MCP 按需恢复连接。下文介绍独立的 Antigravity CLI 工作流。
+
 ## 已验证的能力
 
 - 使用本机已有 Google 账号凭据创建 Antigravity 会话并读取真实回复。
