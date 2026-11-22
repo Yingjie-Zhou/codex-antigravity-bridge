@@ -1,61 +1,54 @@
 # Codex ↔ Antigravity Bridge
 
-让 Codex 使用官方 Antigravity CLI 的账号登录创建和接续工作会话，再由 Antigravity 主动把结果回传父 Codex 聊天。可在父聊天空闲后触发下一轮处理，无需 Gemini 或 OpenAI API Key。
+让 Codex 和 Antigravity 使用已有账号跨会话协作。仓库提供 Windows 桌面会话桥 **Thread Contact**，以及用于创建、接续独立工作会话的 **Antigravity CLI 技能**。
 
-这是一个可直接安装的 Codex skill，附带少量无第三方依赖的脚本。
+| 你想做什么 | 从哪里开始 |
+| --- | --- |
+| 读取已有的桌面对话，或向指定桌面会话发送消息 | [Thread Contact 桌面版](#thread-contact-桌面版) |
+| 启动或续接独立的 Antigravity 工作会话，让结果回到父 Codex 聊天 | [Antigravity CLI 技能](#antigravity-cli-技能) |
 
-## 桌面会话和线程联系
+## Thread Contact 桌面版
 
-[Thread Contact](thread-contact/README.md) 支持 Windows 上的 Codex 与 Antigravity 桌面会话双向读写、Codex 深度链接，以及从两端 MCP 按需恢复连接。下文介绍独立的 Antigravity CLI 工作流。
+适用于 Windows 上已登录的 Codex 与 Antigravity 桌面应用。此路径使用桌面会话，安装时无需 `agy`。
 
-## 已验证的能力
+- **Antigravity → Codex**。给出 `codex://threads/<线程ID>` 深度链接，用 `read_codex_thread_link` 读取近期对话，或用 `send_codex_thread_link` 向该线程发消息。远端链接保留原 `hostId`。
+- **Codex → Antigravity**。给出 Antigravity 桌面会话 ID，用 `read_antigravity_desktop.ps1` 或 `send_antigravity_desktop.ps1` 操作已有会话。目标会话需已打开或在桌面侧栏可见。
+- **按需恢复**。Codex 重启或连接失效后，可从任一端的 MCP 调用 `rebind_bridge`，也可运行 `start_bridge.ps1 -Discover`。恢复入口独立于桥进程，日常使用无需开启轮询。
 
-- 使用本机已有 Google 账号凭据创建 Antigravity 会话并读取真实回复。
-- 通过会话 ID 跨进程续聊，保留上下文和中文内容。
-- Antigravity 实际调用 MCP 回传工具，Codex 应用确认投递。
-- 父 Codex 聊天上一轮结束后，回传消息触发新一轮处理。
-- 稳定请求 ID、重复投递抑制和未知结果保留。
+从负责代投的本机 Codex 聊天完成初始绑定，再登记两端的 MCP 服务。可选的 SSH 回环转发适用于已有 SSH 访问的远端 Codex。 [桌面版配置与命令](thread-contact/README.md)
 
-2026-10-24 的真实 Windows 测试使用 Antigravity CLI 1.4.6 和 Codex 桌面内置 CLI 0.163.0-alpha.10.2。原始账号凭据、聊天 ID、私人路径和完整会话日志不随仓库发布。
+## Antigravity CLI 技能
 
-**接口边界：** Antigravity 侧使用官方 CLI 和工作区 MCP。Codex 回传侧是基于已安装桌面应用内部消息管道的自建适配器，不是公开稳定 API。应用升级后需要重新检查；应用重启后可从原父聊天刷新连接。
+使用官方 `agy` 和已有 Google 账号登录创建工作会话，之后用会话 ID 跨进程续接。Antigravity 可通过工作区 MCP 把结果回传到绑定的父 Codex 聊天。Windows 实测使用 Antigravity CLI 1.4.6 和 Codex 桌面内置 CLI 0.163.0-alpha.10.2，验证了中文上下文续接、回传实际到达，以及父聊天空闲后被唤起。此路径无需 Gemini 或 OpenAI API Key。
 
-## 安装
-
-把这个仓库放入 Codex 的技能目录，并以仓库目录名 `codex-antigravity-bridge` 保存。例如在 Windows PowerShell 中：
+安装前准备好已登录的 `agy`、Python 3.10+ 和 Node.js 18+。从父 Codex 桌面聊天的执行环境配置回传，以便绑定真实聊天和桌面工具上下文。
 
 ```powershell
 git clone https://github.com/Yingjie-Zhou/codex-antigravity-bridge.git "$env:USERPROFILE\.codex\skills\codex-antigravity-bridge"
 ```
 
-目标目录已有内容时先检查，不覆盖已有安装。让 Codex 重新发现技能后，直接提出：
+若该目录已有安装，先检查现有内容。Codex 重新发现技能后，可以提出：
 
 > 使用 $codex-antigravity-bridge，让 Antigravity 在独立工作区完成这个任务，并把结果回传当前聊天。
 
-前提是官方 `agy` 已安装并完成账号登录，且有 Python 3.10+ 和 Node.js 18+。回传需要从父 Codex 桌面聊天的执行环境配置；普通外部终端通常没有当前聊天的桌面工具上下文。
-
-## 文件
-
 | 文件 | 用途 |
 | --- | --- |
-| [SKILL.md](SKILL.md) | 派工、续聊、回传与验收流程 |
-| [setup_bridge.ps1](scripts/setup_bridge.ps1) | 在任务工作区绑定当前父聊天并注册具名 MCP 工具 |
-| [run_agy.py](scripts/run_agy.py) | 账号模式执行一轮 CLI 消息，保留会话 ID、事件与请求回执 |
-| [callback_mcp.mjs](scripts/callback_mcp.mjs) | 向固定父聊天发送消息、查健康状态和投递回执 |
-| [transport.md](references/transport.md) | 官方接口来源、内部管道边界和证据状态 |
+| [SKILL.md](SKILL.md) | 派工、续聊、回传与验收 |
+| [setup_bridge.ps1](scripts/setup_bridge.ps1) | 绑定父聊天并登记三个具名 MCP 工具 |
+| [run_agy.py](scripts/run_agy.py) | 使用官方 CLI 运行或续接会话，保存会话 ID、原始事件和请求回执 |
+| [callback_mcp.mjs](scripts/callback_mcp.mjs) | 向绑定的父聊天回传，检查连接和投递回执 |
+| [transport.md](references/transport.md) | 接口来源、传输限制和到达证据 |
 
-## 使用边界
+## 投递与兼容性
 
-父 Codex 负责集成和验收，Antigravity 承担用户授权的具体工作。回传是外部代理数据，不构成新的用户授权。消息到达不等于工作正确，更不等于科学结论被接受。
+发送消息需有覆盖该任务和收件人的用户授权。每条逻辑消息使用稳定请求 ID，结果未知时用同一 ID 查询回执。应用确认投递后，可到目标聊天核对实际收到的内容。科研或代码成果仍由相应负责人验收。
 
-适配器固定绑定父聊天，不接受其他目标。只增加三个具名 MCP 工具许可，不开启全局跳过权限审查，不自动建立互相唤醒的循环。
+两种路径的 Codex 接入均依赖桌面内部工具管道，应用升级后应复查兼容性。桌面版的 `thread-contact/runtime/` 和 CLI 工作区的 `.codex-antigravity/` 包含私有配置、凭据或日志，请保存在本地。
 
-任务私有状态、连接上下文、配置备份和原始日志位于工作区的 `.codex-antigravity/`，必须留在 Git 之外。超时或投递结果未知时先核对原回执，不能换 ID 盲目重试。
-
-## 本地协议测试
+## CLI 回传协议测试
 
 ```text
 node tests/callback_protocol.mjs
 ```
 
-测试使用临时本机管道和 stdio，验证两个进程对同一请求只投递一次、正文冲突和改投其他聊天会被拒绝、连接中断后保留未知结果，以及进程重启后仍能复用回执。它不会调用模型或向真实聊天发送消息。真实账号和空闲唤起验证仍需使用者在自己的桌面环境中完成。
+测试使用临时本机管道和 stdio，覆盖重复投递抑制、同 ID 正文冲突、目标覆盖拒绝、断连后保留未知结果，以及进程重启后复用回执。测试只向隔离环境投递。
