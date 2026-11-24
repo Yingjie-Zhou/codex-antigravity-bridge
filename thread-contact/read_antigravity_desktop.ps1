@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][guid]$ConversationId,
-    [ValidateRange(1,3)][int]$TurnLimit = 1,
+    [ValidateRange(1,10)][int]$TurnLimit = 1,
+    [ValidateRange(0,1000)][int]$SkipTurns = 0,
+    [ValidateRange(200,4000)][int]$MaxCharsPerItem = 2000,
     [switch]$MetadataOnly
 )
 $ErrorActionPreference = 'Stop'
@@ -82,19 +84,49 @@ foreach ($node in $nodes) {
 }
 if (-not $turns.Count) { throw 'No recognizable input turns in the rendered desktop log.' }
 
-$visible = foreach ($turn in ($turns | Select-Object -Last $TurnLimit)) {
+$totalVisible = $turns.Count
+$endExclusive = [Math]::Max(0, $totalVisible - $SkipTurns)
+$startIndex = [Math]::Max(0, $endExclusive - $TurnLimit)
+$sliceCount = $endExclusive - $startIndex
+$selectedTurns = if ($sliceCount -gt 0) { $turns.GetRange($startIndex, $sliceCount) } else { @() }
+$hasOlder = $startIndex -gt 0
+$nextOffset = $SkipTurns + $sliceCount
+$nextSkip = if ($hasOlder -and $nextOffset -le 1000) { $nextOffset } else { $null }
+$maxTotalChars = 24000
+$remainingTotal = $maxTotalChars
+$totalClipped = $false
+
+$visible = @(foreach ($turn in $selectedTurns) {
     $messages = foreach ($item in @($turn.input,$turn.reply)) {
         if (-not $item) { continue }
         $body = ($item.parts -join $(if ($item.role -eq 'input') {"`n"} else {' '})).Trim()
         $row = [ordered]@{ui_role=$item.role; state=$item.state; visible_characters=$body.Length}
-        if (-not $MetadataOnly) { $row.text = $body.Substring(0,[Math]::Min(2000,$body.Length)) }
+        if (-not $MetadataOnly) {
+            $take = [Math]::Min($MaxCharsPerItem, $body.Length)
+            $wasClipped = $body.Length -gt $MaxCharsPerItem
+            if ($take -gt $remainingTotal) {
+                $take = $remainingTotal
+                $wasClipped = $true
+                $totalClipped = $true
+            }
+            $row.text = $body.Substring(0, $take)
+            if ($wasClipped) { $row.clipped = $true }
+            $remainingTotal = [Math]::Max(0, $remainingTotal - $take)
+        }
         $row
     }
     @{ messages=@($messages) }
-}
-[ordered]@{
+})
+$output = [ordered]@{
     conversation_id=$id
     source='Antigravity desktop accessibility tree'
-    scope='Recent rendered text; UI roles do not identify the human author. Up to 2000 characters per message.'
-    turns=@($visible)
-} | ConvertTo-Json -Depth 6 -Compress
+    scope="Rendered text window (skip_turns=$SkipTurns, turn_limit=$TurnLimit); UI roles do not identify the human author. Up to $MaxCharsPerItem characters per message and $maxTotalChars total characters."
+    total_visible_turns=$totalVisible
+    turn_count=$sliceCount
+    skip_turns=$SkipTurns
+    has_older_turns=$hasOlder
+    next_skip_turns=$nextSkip
+    turns=$visible
+}
+if ($totalClipped) { $output.total_text_clipped = $true }
+$output | ConvertTo-Json -Depth 6 -Compress

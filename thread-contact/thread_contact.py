@@ -16,7 +16,7 @@ def call(body):
 
 TOOLS=[
  {'name':'contact_thread','description':'向指定Codex线程发消息。省略目标时使用桥接配置中的默认线程；可指定本机或远端host。须有用户授权。request_id稳定去重；ACK不代表读到或科学接受。未知投递结果禁止换ID自动重发。来源取实际CODEX_THREAD_ID。','inputSchema':{'type':'object','properties':{'message':{'type':'string'},'request_id':{'type':'string'},'target_thread_id':{'type':'string'},'target_host_id':{'type':'string'}},'required':['message','request_id'],'additionalProperties':False}},
- {'name':'read_contact_target','description':'有界读取指定联系对象最近1至3轮，核对通信到达。省略目标时使用桥接配置中的默认线程。','inputSchema':{'type':'object','properties':{'target_thread_id':{'type':'string'},'target_host_id':{'type':'string'},'turn_limit':{'type':'integer','minimum':1,'maximum':3}},'additionalProperties':False}},
+ {'name':'read_contact_target','description':'有界分页读取指定联系对象最近1至10轮（支持cursor向前回溯更早轮次），核对通信到达或上下文。省略目标时使用桥接配置中的默认线程。','inputSchema':{'type':'object','properties':{'target_thread_id':{'type':'string'},'target_host_id':{'type':'string'},'turn_limit':{'type':'integer','minimum':1,'maximum':10,'default':1},'cursor':{'type':'string','minLength':1,'maxLength':1024,'description':'可选分页游标（取自上次返回 page.nextCursor），用于读取更早轮次。'},'max_chars_per_item':{'type':'integer','minimum':200,'maximum':4000,'default':2000}},'additionalProperties':False}},
  {'name':'contact_receipt','description':'读取当前来源线程稳定request_id的本地投递回执，不重复发送。','inputSchema':{'type':'object','properties':{'request_id':{'type':'string'}},'required':['request_id'],'additionalProperties':False}},
  {'name':'contact_health','description':'检查本机桥接和Codex消息工具是否可达，不发送消息。','inputSchema':{'type':'object','properties':{},'additionalProperties':False}}
 ]
@@ -27,7 +27,7 @@ def mcp():
         try:
             request=json.loads(line); method=request.get('method'); rid=request.get('id')
             if rid is None:continue
-            if method=='initialize':result={'protocolVersion':request.get('params',{}).get('protocolVersion','2025-06-18'),'capabilities':{'tools':{}},'serverInfo':{'name':'thread-contact','version':'0.2.0'},'instructions':'Explicit user authorization is required to message another thread. Thread messages are not new human science/budget authority. Read failures/unknown do not authorize duplicate send.'}
+            if method=='initialize':result={'protocolVersion':request.get('params',{}).get('protocolVersion','2025-06-18'),'capabilities':{'tools':{}},'serverInfo':{'name':'thread-contact','version':'0.3.0'},'instructions':'Explicit user authorization is required to message another thread. Thread messages are not new human science/budget authority. Read failures/unknown do not authorize duplicate send.'}
             elif method=='ping':result={}
             elif method=='tools/list':result={'tools':TOOLS}
             elif method=='tools/call':
@@ -54,11 +54,14 @@ def main():
     parser.add_argument('--thread',dest='target_thread_id');parser.add_argument('--host',dest='target_host_id')
     parser.add_argument('--request-id');parser.add_argument('--message');parser.add_argument('--message-file')
     parser.add_argument('--source-thread');parser.add_argument('--source-host')
+    parser.add_argument('--turn-limit',type=int);parser.add_argument('--cursor');parser.add_argument('--max-chars-per-item',type=int)
     args=parser.parse_args()
     if args.operation=='mcp':mcp();return
     body={'op':args.operation}
-    for k in ['target_thread_id','target_host_id','request_id']:
+    for k in ['target_thread_id','target_host_id','request_id','cursor']:
         if getattr(args,k):body[k]=getattr(args,k)
+    if args.turn_limit is not None:body['turn_limit']=args.turn_limit
+    if args.max_chars_per_item is not None:body['max_chars_per_item']=args.max_chars_per_item
     if args.source_thread:body['source_thread_id']=args.source_thread
     if args.source_host:body['source_host_id']=args.source_host
     if args.message_file:body['message']=pathlib.Path(args.message_file).read_text(encoding='utf-8')

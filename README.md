@@ -11,8 +11,8 @@
 
 适用于 Windows 上已登录的 Codex 与 Antigravity 桌面应用。此路径使用桌面会话，安装时无需 `agy`。
 
-- **Antigravity → Codex**。给出 `codex://threads/<线程ID>` 深度链接，用 `read_codex_thread_link` 读取近期对话，或用 `send_codex_thread_link` 向该线程发消息。远端链接保留原 `hostId`。
-- **Codex → Antigravity**。给出 Antigravity 桌面会话 ID，用 `read_antigravity_desktop.ps1` 或 `send_antigravity_desktop.ps1` 操作已有会话。目标会话需已打开或在桌面侧栏可见。
+- **Antigravity → Codex**。给出 `codex://threads/<线程ID>` 深度链接，用 `read_codex_thread_link` 分页读取近期或更早的对话，或用 `send_codex_thread_link` 向该线程发消息。远端链接保留原 `hostId`。
+- **Codex → Antigravity**。给出 Antigravity 桌面会话 ID，用 `read_antigravity_desktop.ps1` 或 `send_antigravity_desktop.ps1` 操作已有会话。可逐页读取已渲染的历史。目标会话需已打开或在桌面侧栏可见。
 - **按需恢复**。Codex 重启或连接失效后，可从任一端的 MCP 调用 `rebind_bridge`，也可运行 `start_bridge.ps1 -Discover`。恢复入口独立于桥进程，日常使用无需开启轮询。
 
 从负责代投的本机 Codex 聊天完成初始绑定，再登记两端的 MCP 服务。可选的 SSH 回环转发适用于已有 SSH 访问的远端 Codex。 [桌面版配置与命令](thread-contact/README.md)

@@ -49,8 +49,13 @@ args = ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", 'C:\path\thread-con
 
 | 方向 | 操作 |
 | --- | --- |
-| Antigravity → Codex | 用 `read_codex_thread_link` 按 `codex://threads/<线程ID>` 读取最多三轮，远端链接保留 `hostId`。获用户授权后，用 `send_codex_thread_link` 向该链接发送，用 `codex_thread_link_receipt` 查询。绑定的本机代投聊天也可使用 `notify_codex` 和 `callback_receipt`。 |
+| Antigravity → Codex | 用 `read_codex_thread_link` 按 `codex://threads/<线程ID>` 按页读取近期或更早的可见对话，远端链接保留 `hostId`。获用户授权后，用 `send_codex_thread_link` 向该链接发送，用 `codex_thread_link_receipt` 查询。绑定的本机代投聊天也可使用 `notify_codex` 和 `callback_receipt`。 |
 | Codex → Antigravity | 用 `powershell.exe -NoProfile -STA -File .\read_antigravity_desktop.ps1 -ConversationId <UUID> -TurnLimit 3` 读取。获用户授权后，用 `send_antigravity_desktop.ps1` 传入 `-ConversationId`、`-RequestId` 和 UTF-8 的 `-MessageFile`。目标会话需在桌面打开或在侧栏可见，发送通过正常桌面输入框。 |
+
+### 分页读取
+
+- **Antigravity 读取 Codex**。`read_codex_thread_link` 每页可读 1–10 轮，默认 1 轮。用上次返回的 `next_cursor` 作为同一链接的 `cursor`，继续读取较早的对话。`metadata_only: true` 返回线程、轮次状态和分页信息。正文每条默认 2000 字符，可设为 200–4000 字符。每页最多返回 24000 字符正文，截断时会带标记。
+- **Codex 读取 Antigravity**。`read_antigravity_desktop.ps1` 的 `-TurnLimit` 为 1–10，默认 1。要向前翻页，把 `next_skip_turns` 传给 `-SkipTurns`，最大偏移 1000。`-MetadataOnly` 只返回元数据和分页信息。`-MaxCharsPerItem` 可设为 200–4000，默认 2000。每页正文上限为 24000 字符。该功能读取桌面已渲染的对话，显示内容变化后可从最新页重新定位。
 
 发送须使用稳定的请求 ID。结果未知时查同一请求回执，避免重复发送。已有任务授权可用于同范围的反馈和交付。新权限、新预算或新收件人按对应的用户授权执行。消息头标明代投来源。桌面提交或应用 ACK 后可在目标聊天核对实际接收。
 
@@ -58,6 +63,6 @@ args = ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", 'C:\path\thread-con
 
 有现成 SSH 访问时，在私有桥配置的 `remotes` 登记受信任执行端。每项包含 `ssh_host`（本机 SSH 别名）、`host_id`（Codex 识别的远端 hostId）和 `remote_port`（远端回环端口）。改动后用 `.\stop_bridge.ps1`、`.\start_bridge.ps1 -Discover` 重建转发。
 
-远端使用 Python 3.6+ 运行 `thread_contact.py`。把 `url`（远端回环转发地址）、`token`、`source_host_id` 写入权限 0600 的 `~/.config/codex-thread-contact/client.json`。可以用 `THREAD_CONTACT_CONFIG` 指定另一私有配置。运行 `python3 thread_contact.py health` 检查实际转发，或用 `mcp` 参数注册 stdio MCP。可选的 `install_remote.py` 从标准输入读取私有部署 JSON，字段为 `client_base64`、`url`、`token`、`source_host_id`，可另指定 `readme_base64` 和 `managed_config_path`。
+远端使用 Python 3.6+ 运行 `thread_contact.py`。把 `url`（远端回环转发地址）、`token`、`source_host_id` 写入权限 0600 的 `~/.config/codex-thread-contact/client.json`。可以用 `THREAD_CONTACT_CONFIG` 指定另一私有配置。运行 `python3 thread_contact.py health` 检查实际转发，或用 `mcp` 参数注册 stdio MCP。`read_contact_target` 支持 `turn_limit`（1–10）、`cursor`（取上次返回的 `page.nextCursor`）和 `max_chars_per_item`（200–4000）。客户端的 `read` 子命令也接受 `--turn-limit`、`--cursor` 和 `--max-chars-per-item`。可选的 `install_remote.py` 从标准输入读取私有部署 JSON，字段为 `client_base64`、`url`、`token`、`source_host_id`，可另指定 `readme_base64` 和 `managed_config_path`。
 
 桥以本机所有者的 Codex 上下文代投。拥有共享桥令牌的客户端可以请求读取和代投，请只将执行端接入同一信任范围。配置、凭据、消息记录及身份标识应留在本机。

@@ -106,7 +106,19 @@ async function handle(body) {
   }
   const source = sourceOf(body), target = targetOf(body);
   if (body.op === 'read') {
-    return appCall('read_thread', {...target, turnLimit:Math.min(Math.max(body.turn_limit || 1, 1), 3), includeOutputs:false, maxOutputCharsPerItem:2000}, source);
+    const rawLimit = body.turn_limit === undefined || body.turn_limit === null ? 1 : Number(body.turn_limit);
+    const turnLimit = Number.isInteger(rawLimit) ? Math.min(Math.max(rawLimit, 1), 10) : 1;
+    const readArgs = {...target, turnLimit, includeOutputs:false, maxOutputCharsPerItem:2000};
+    if (body.cursor !== undefined) {
+      if (typeof body.cursor !== 'string' || !body.cursor.trim() || body.cursor.length > 1024) throw new Error('INVALID_READ_CURSOR');
+      readArgs.cursor = body.cursor;
+    }
+    if (body.max_chars_per_item !== undefined && body.max_chars_per_item !== null) {
+      const rawChars = Number(body.max_chars_per_item);
+      if (!Number.isInteger(rawChars) || rawChars < 200 || rawChars > 4000) throw new Error('INVALID_MAX_CHARS_PER_ITEM');
+      readArgs.maxOutputCharsPerItem = rawChars;
+    }
+    return appCall('read_thread', readArgs, source);
   }
   if (body.op === 'receipt') {
     const key = `${source.host_id}/${source.thread_id}/${body.request_id}`;
